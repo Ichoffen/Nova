@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Nova — Claude Client</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://api.anthropic.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-root">
+    <!-- Левый сайдбар -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="app-title">Nova · Claude</div>
+        <button class="new-chat-btn" id="new-chat-btn">+ Новый чат</button>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Чаты</div>
+        <div class="chat-list" id="chat-list">
+          <!-- Список чатов -->
+        </div>
+      </div>
+    </aside>
+
+    <!-- Основная область -->
+    <main class="main">
+      <!-- Верхняя панель -->
+      <header class="main-header">
+        <div class="model-select">
+          <label for="model">Модель:</label>
+          <select id="model">
+            <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+            <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+            <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+          </select>
+        </div>
+
+        <div class="api-key-block">
+          <label for="api-key">API key:</label>
+          <input type="password" id="api-key" placeholder="sk-..." />
+          <button id="save-key-btn">Сохранить</button>
+        </div>
+
+        <div class="messages-limit-block">
+          <label for="message-limit">Показывать сообщений:</label>
+          <select id="message-limit">
+            <option value="20">20</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+            <option value="9999">Все</option>
+          </select>
+        </div>
+      </header>
+
+      <!-- Зона сообщений -->
+      <section class="messages-container" id="messages"></section>
+
+      <!-- Нижняя панель ввода -->
+      <footer class="input-footer">
+        <div class="input-row">
+          <textarea id="message-input" rows="2" placeholder="Напиши сообщение для Claude..."></textarea>
+        </div>
+        <div class="input-actions">
+          <div class="left-actions">
+            <button id="mic-btn" class="icon-btn">🎤</button>
+            <span id="mic-status" class="mic-status"></span>
+          </div>
+          <div class="right-actions">
+            <button id="send-btn" class="primary-btn">Отправить</button>
+          </div>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
