@@ -1,31 +1,32 @@
 {
-  "name": "nova-claude-client",
-  "version": "0.1.0",
-  "description": "Desktop Claude client (Nova) with ChatGPT-like UI",
+  "name": "nova-client",
+  "version": "1.0.0",
+  "description": "Desktop client for Claude API with voice input",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win portable"
+    "build": "electron-builder"
   },
+  "author": "",
+  "license": "MIT",
   "devDependencies": {
-    "electron": "^33.0.0",
-    "electron-builder": "^25.0.0"
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4"
   },
   "build": {
-    "appId": "com.nova.claudeclient",
-    "productName": "Nova Claude Client",
-    "files": [
-      "**/*",
-      "!dist",
-      "!node_modules"
-    ],
+    "appId": "com.nova.client",
+    "productName": "Nova",
     "directories": {
-      "buildResources": "build"
+      "output": "dist"
     },
     "win": {
-      "target": [
-        "portable"
-      ]
+      "target": "portable"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
     }
   }
 }
