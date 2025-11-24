@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const { ipcRenderer } = require('electron');
 
 // Путь для хранения данных (используем текущую директорию для portable версии)
 const userDataPath = process.env.PORTABLE_EXECUTABLE_DIR || __dirname;
@@ -139,18 +138,26 @@ function renderChatsList() {
         const chatItem = document.createElement('div');
         chatItem.className = `chat-item ${chat.id === currentChatId ? 'active' : ''}`;
         
-        chatItem.innerHTML = `
-            <div class="chat-item-title">${chat.title}</div>
-            <button class="delete-chat-btn" data-id="${chat.id}">×</button>
-        `;
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'chat-item-title';
+        titleDiv.textContent = chat.title;
         
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-chat-btn';
+        deleteBtn.textContent = '×';
+        deleteBtn.setAttribute('data-id', chat.id);
+        
+        chatItem.appendChild(titleDiv);
+        chatItem.appendChild(deleteBtn);
+        
+        // Клик по всему чату (переключение)
         chatItem.addEventListener('click', (e) => {
             if (!e.target.classList.contains('delete-chat-btn')) {
                 switchToChat(chat.id);
             }
         });
         
-        const deleteBtn = chatItem.querySelector('.delete-chat-btn');
+        // Клик по кнопке удаления
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             deleteChat(chat.id);
