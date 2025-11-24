@@ -1,9 +1,9 @@
 const fs = require('fs');
 const path = require('path');
-const { app } = require('@electron/remote');
+const { ipcRenderer } = require('electron');
 
-// Путь для хранения данных
-const userDataPath = app.getPath('userData');
+// Путь для хранения данных (используем текущую директорию для portable версии)
+const userDataPath = process.env.PORTABLE_EXECUTABLE_DIR || __dirname;
 const chatsFilePath = path.join(userDataPath, 'chats.json');
 const settingsFilePath = path.join(userDataPath, 'settings.json');
 
