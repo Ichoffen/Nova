@@ -12,10 +12,9 @@ let chatsWithoutProject = [];
 let currentChatId = null;
 let apiKey = '';
 let currentModel = 'claude-sonnet-4-5-20250929';
-let maxMessages = 50; // Максимум сообщений для отображения
+let maxMessages = 50;
 
 // Элементы интерфейса
-const sidebar = document.querySelector('.sidebar');
 const projectsList = document.getElementById('projectsList');
 const messagesContainer = document.getElementById('messagesContainer');
 const messageInput = document.getElementById('messageInput');
@@ -32,11 +31,11 @@ const maxMessagesInput = document.getElementById('maxMessagesInput');
 
 // Инициализация при загрузке
 window.addEventListener('DOMContentLoaded', () => {
+    console.log('Nova запускается...');
     loadSettings();
     loadData();
     renderSidebar();
     
-    // Если есть чаты - открываем первый
     const firstChat = findFirstChat();
     if (firstChat) {
         switchToChat(firstChat.id);
@@ -53,8 +52,8 @@ function loadSettings() {
             apiKey = settings.apiKey || '';
             currentModel = settings.model || 'claude-sonnet-4-5-20250929';
             maxMessages = settings.maxMessages || 50;
-            modelSelect.value = currentModel;
-            maxMessagesInput.value = maxMessages;
+            if (modelSelect) modelSelect.value = currentModel;
+            if (maxMessagesInput) maxMessagesInput.value = maxMessages;
         }
     } catch (error) {
         console.error('Ошибка загрузки настроек:', error);
@@ -74,7 +73,7 @@ function saveSettings() {
     }
 }
 
-// === РАБОТА С ДАННЫМИ (ПРОЕКТЫ И ЧАТЫ) ===
+// === РАБОТА С ДАННЫМИ ===
 
 function loadData() {
     try {
@@ -84,7 +83,7 @@ function loadData() {
             projects = parsed.projects || [];
             chatsWithoutProject = parsed.chatsWithoutProject || [];
         } else {
-            // Миграция со старого формата (если есть старый chats.json)
+            // Миграция со старого формата
             const oldChatsPath = path.join(userDataPath, 'chats.json');
             if (fs.existsSync(oldChatsPath)) {
                 const oldData = fs.readFileSync(oldChatsPath, 'utf8');
@@ -114,20 +113,20 @@ function saveData() {
 function findFirstChat() {
     if (chatsWithoutProject.length > 0) return chatsWithoutProject[0];
     for (let project of projects) {
-        if (project.chats.length > 0) return project.chats[0];
+        if (project.chats && project.chats.length > 0) return project.chats[0];
     }
     return null;
 }
 
 function findChat(chatId) {
-    // Ищем в чатах без проекта
     let chat = chatsWithoutProject.find(c => c.id === chatId);
     if (chat) return chat;
     
-    // Ищем в проектах
     for (let project of projects) {
-        chat = project.chats.find(c => c.id === chatId);
-        if (chat) return chat;
+        if (project.chats) {
+            chat = project.chats.find(c => c.id === chatId);
+            if (chat) return chat;
+        }
     }
     return null;
 }
@@ -155,8 +154,8 @@ function deleteProject(projectId) {
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
     
-    if (project.chats.length > 0) {
-        if (!confirm(`В проекте "${project.name}" есть ${project.chats.length} чатов. Удалить проект и все чаты?`)) {
+    if (project.chats && project.chats.length > 0) {
+        if (!confirm(`В проекте "${project.name}" есть ${project.chats.length} чатов. Удалить?`)) {
             return;
         }
     }
@@ -165,7 +164,6 @@ function deleteProject(projectId) {
     saveData();
     renderSidebar();
     
-    // Если удалили проект с текущим чатом
     if (currentChatId && !findChat(currentChatId)) {
         currentChatId = null;
         showWelcomeScreen();
@@ -176,7 +174,7 @@ function renameProject(projectId) {
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
     
-    const newName = prompt('Новое название проекта:', project.name);
+    const newName = prompt('Новое название:', project.name);
     if (!newName || !newName.trim()) return;
     
     project.name = newName.trim();
@@ -206,6 +204,7 @@ function createNewChat(projectId = null) {
     if (projectId) {
         const project = projects.find(p => p.id === projectId);
         if (project) {
+            if (!project.chats) project.chats = [];
             project.chats.unshift(newChat);
         }
     } else {
@@ -220,12 +219,12 @@ function createNewChat(projectId = null) {
 function deleteChat(chatId) {
     if (!confirm('Удалить этот чат?')) return;
     
-    // Удаляем из чатов без проекта
     chatsWithoutProject = chatsWithoutProject.filter(chat => chat.id !== chatId);
     
-    // Удаляем из проектов
     projects.forEach(project => {
-        project.chats = project.chats.filter(chat => chat.id !== chatId);
+        if (project.chats) {
+            project.chats = project.chats.filter(chat => chat.id !== chatId);
+        }
     });
     
     saveData();
@@ -250,6 +249,8 @@ function getCurrentChat() {
 // === ОТОБРАЖЕНИЕ ===
 
 function renderSidebar() {
+    if (!projectsList) return;
+    
     projectsList.innerHTML = '';
     
     // Чаты без проекта
@@ -320,7 +321,7 @@ function createProjectElement(project) {
     projectDiv.appendChild(header);
     
     // Чаты проекта
-    if (project.expanded) {
+    if (project.expanded && project.chats) {
         const chatsContainer = document.createElement('div');
         chatsContainer.className = 'project-chats';
         
@@ -365,6 +366,8 @@ function createChatElement(chat) {
 }
 
 function showWelcomeScreen() {
+    if (!messagesContainer) return;
+    
     messagesContainer.innerHTML = `
         <div class="welcome-message">
             <h1>👋 Привет! Я Nova</h1>
@@ -381,9 +384,10 @@ function renderMessages() {
         return;
     }
     
+    if (!messagesContainer) return;
+    
     messagesContainer.innerHTML = '';
     
-    // Показываем только последние maxMessages сообщений
     const messagesToShow = chat.messages.slice(-maxMessages);
     
     if (chat.messages.length > maxMessages) {
@@ -411,24 +415,16 @@ function renderMessages() {
 }
 
 function formatMessage(text) {
-    // Простое форматирование Markdown
     let formatted = escapeHtml(text);
     
-    // Блоки кода ```
-    formatted = formatted.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+    formatted = formatted.replace(/```(\w+)?
+([\s\S]*?)```/g, (match, lang, code) => {
         return `<pre><code class="language-${lang || 'text'}">${code.trim()}</code></pre>`;
     });
     
-    // Инлайн код `code`
     formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
-    
-    // Жирный **text**
     formatted = formatted.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
-    
-    // Курсив *text*
     formatted = formatted.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
-    
-    // Переносы строк
     formatted = formatted.replace(/\n/g, '<br>');
     
     return formatted;
@@ -451,7 +447,7 @@ async function sendMessage() {
     
     if (!apiKey) {
         alert('Введите API ключ в настройках');
-        settingsModal.classList.add('active');
+        if (settingsModal) settingsModal.classList.add('active');
         return;
     }
     
@@ -503,66 +499,80 @@ async function sendMessage() {
         renderMessages();
         
     } catch (error) {
-        console.error('Ошибка отправки сообщения:', error);
-        alert('Ошибка отправки сообщения. Проверьте API ключ и подключение.');
+        console.error('Ошибка:', error);
+        alert('Ошибка отправки сообщения. Проверьте API ключ.');
         chat.messages.pop();
         renderMessages();
     } finally {
         sendBtn.disabled = false;
-        messageInput.focus();
+        if (messageInput) messageInput.focus();
     }
 }
 
 // === ОБРАБОТЧИКИ СОБЫТИЙ ===
 
-newChatBtn.addEventListener('click', () => createNewChat());
-newProjectBtn.addEventListener('click', createNewProject);
-sendBtn.addEventListener('click', sendMessage);
+if (newChatBtn) newChatBtn.addEventListener('click', () => createNewChat());
+if (newProjectBtn) newProjectBtn.addEventListener('click', createNewProject);
+if (sendBtn) sendBtn.addEventListener('click', sendMessage);
 
-messageInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-    }
-});
-
-messageInput.addEventListener('input', () => {
-    messageInput.style.height = 'auto';
-    messageInput.style.height = messageInput.scrollHeight + 'px';
-});
-
-modelSelect.addEventListener('change', () => {
-    currentModel = modelSelect.value;
-    saveSettings();
-});
-
-maxMessagesInput.addEventListener('change', () => {
-    maxMessages = parseInt(maxMessagesInput.value) || 50;
-    saveSettings();
-    renderMessages();
-});
-
-settingsBtn.addEventListener('click', () => {
-    apiKeyInput.value = apiKey;
-    settingsModal.classList.add('active');
-});
-
-closeSettings.addEventListener('click', () => {
-    settingsModal.classList.remove('active');
-});
-
-saveApiKey.addEventListener('click', () => {
-    apiKey = apiKeyInput.value.trim();
-    saveSettings();
-    settingsModal.classList.remove('active');
+if (messageInput) {
+    messageInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
     
-    if (apiKey) {
-        alert('API ключ сохранён!');
-    }
-});
+    messageInput.addEventListener('input', () => {
+        messageInput.style.height = 'auto';
+        messageInput.style.height = messageInput.scrollHeight + 'px';
+    });
+}
 
-settingsModal.addEventListener('click', (e) => {
-    if (e.target === settingsModal) {
-        settingsModal.classList.remove('active');
-    }
-});
+if (modelSelect) {
+    modelSelect.addEventListener('change', () => {
+        currentModel = modelSelect.value;
+        saveSettings();
+    });
+}
+
+if (maxMessagesInput) {
+    maxMessagesInput.addEventListener('change', () => {
+        maxMessages = parseInt(maxMessagesInput.value) || 50;
+        saveSettings();
+        renderMessages();
+    });
+}
+
+if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+        if (apiKeyInput) apiKeyInput.value = apiKey;
+        if (settingsModal) settingsModal.classList.add('active');
+    });
+}
+
+if (closeSettings) {
+    closeSettings.addEventListener('click', () => {
+        if (settingsModal) settingsModal.classList.remove('active');
+    });
+}
+
+if (saveApiKey) {
+    saveApiKey.addEventListener('click', () => {
+        if (apiKeyInput) apiKey = apiKeyInput.value.trim();
+        saveSettings();
+        if (settingsModal) settingsModal.classList.remove('active');
+        
+        if (apiKey) {
+            alert('API ключ сохранён!');
+        }
+    });
+}
+
+if (settingsModal) {
+    settingsModal.addEventListener('click', (e) => {
+        if (e.target === settingsModal) {
+            settingsModal.classList.remove('active');
+        }
+    });
+}
