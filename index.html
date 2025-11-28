@@ -12,12 +12,11 @@
         <div class="sidebar-header">
             <div class="logo">Nova</div>
             <button id="newChatBtn" class="new-chat-btn">+ Новый чат</button>
-            <button id="newProjectBtn" class="new-project-btn">📁 Новый проект</button>
         </div>
         
-        <!-- Список проектов и чатов -->
-        <div class="projects-list" id="projectsList">
-            <!-- Проекты и чаты будут добавляться сюда через JavaScript -->
+        <!-- Список чатов -->
+        <div class="chats-list" id="chatsList">
+            <!-- Чаты будут добавляться сюда через JavaScript -->
         </div>
         
         <!-- Кнопка настроек внизу -->
@@ -72,18 +71,6 @@
                     class="api-key-input"
                     placeholder="sk-ant-..."
                 >
-                
-                <label for="maxMessagesInput">Максимум сообщений для отображения:</label>
-                <input 
-                    type="number" 
-                    id="maxMessagesInput" 
-                    class="max-messages-input"
-                    min="10"
-                    max="1000"
-                    value="50"
-                >
-                <p class="hint-small">Чтобы чат не тормозил, показываются только последние N сообщений</p>
-                
                 <button id="saveApiKey" class="save-btn">Сохранить</button>
                 <p class="hint">Получить API ключ можно на <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></p>
             </div>
