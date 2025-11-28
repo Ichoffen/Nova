@@ -98,6 +98,9 @@ function createNewChat() {
     saveChats();
     renderChatsList();
     switchToChat(newChat.id);
+    
+    // Возвращаем фокус на поле ввода
+    setTimeout(() => messageInput.focus(), 100);
 }
 
 function deleteChat(chatId) {
@@ -122,6 +125,9 @@ function switchToChat(chatId) {
     currentChatId = chatId;
     renderChatsList();
     renderMessages();
+    
+    // Возвращаем фокус на поле ввода
+    setTimeout(() => messageInput.focus(), 100);
 }
 
 function getCurrentChat() {
@@ -204,9 +210,16 @@ function escapeHtml(text) {
 // === ОТПРАВКА СООБЩЕНИЙ ===
 
 async function sendMessage() {
+    // Если нет активного чата - создаём новый
+    if (!currentChatId) {
+        createNewChat();
+        // Даём время на создание чата
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
     const chat = getCurrentChat();
     if (!chat) {
-        alert('Выберите или создайте чат');
+        alert('Ошибка создания чата');
         return;
     }
     
@@ -233,6 +246,7 @@ async function sendMessage() {
     renderMessages();
     
     sendBtn.disabled = true;
+    messageInput.disabled = true;
     
     try {
         const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -270,6 +284,7 @@ async function sendMessage() {
         renderMessages();
     } finally {
         sendBtn.disabled = false;
+        messageInput.disabled = false;
         messageInput.focus();
     }
 }
@@ -303,6 +318,8 @@ settingsBtn.addEventListener('click', () => {
 
 closeSettings.addEventListener('click', () => {
     settingsModal.classList.remove('active');
+    // Возвращаем фокус на поле ввода после закрытия настроек
+    setTimeout(() => messageInput.focus(), 100);
 });
 
 saveApiKey.addEventListener('click', () => {
@@ -313,10 +330,14 @@ saveApiKey.addEventListener('click', () => {
     if (apiKey) {
         alert('API ключ сохранён!');
     }
+    
+    // Возвращаем фокус на поле ввода
+    setTimeout(() => messageInput.focus(), 100);
 });
 
 settingsModal.addEventListener('click', (e) => {
     if (e.target === settingsModal) {
         settingsModal.classList.remove('active');
+        setTimeout(() => messageInput.focus(), 100);
     }
 });
