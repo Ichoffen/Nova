@@ -144,7 +144,6 @@ function renderChatsList() {
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-chat-btn';
         deleteBtn.textContent = '×';
-        deleteBtn.setAttribute('data-id', chat.id);
         
         chatItem.appendChild(titleDiv);
         chatItem.appendChild(deleteBtn);
@@ -266,8 +265,7 @@ async function sendMessage() {
         
     } catch (error) {
         console.error('Ошибка отправки сообщения:', error);
-        alert('Ошибка отправки сообщения. Проверьте API ключ и подключение к интернету.');
-        
+        alert('Ошибка отправки сообщения. Проверьте API ключ.');
         chat.messages.pop();
         renderMessages();
     } finally {
@@ -279,7 +277,6 @@ async function sendMessage() {
 // === ОБРАБОТЧИКИ СОБЫТИЙ ===
 
 newChatBtn.addEventListener('click', createNewChat);
-
 sendBtn.addEventListener('click', sendMessage);
 
 messageInput.addEventListener('keydown', (e) => {
