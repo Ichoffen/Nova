@@ -34,7 +34,7 @@ body {
     color: #fff;
 }
 
-.new-chat-btn {
+.new-chat-btn, .new-project-btn {
     width: 100%;
     padding: 10px;
     background: #2a2a2a;
@@ -44,9 +44,10 @@ body {
     cursor: pointer;
     font-size: 14px;
     transition: all 0.2s;
+    margin-bottom: 8px;
 }
 
-.new-chat-btn:hover {
+.new-chat-btn:hover, .new-project-btn:hover {
     background: #333;
 }
 
@@ -57,6 +58,75 @@ body {
     padding: 8px;
 }
 
+.chats-section {
+    margin-bottom: 12px;
+}
+
+/* Проекты */
+.project-item {
+    margin-bottom: 8px;
+}
+
+.project-header {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    background: #252525;
+    border-radius: 6px;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.project-header:hover {
+    background: #2a2a2a;
+}
+
+.project-toggle {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.project-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.project-add-btn {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 2px 8px;
+    font-size: 18px;
+    transition: all 0.2s;
+    border-radius: 4px;
+}
+
+.project-add-btn:hover {
+    color: #4a9eff;
+    background: #2a2a2a;
+}
+
+.project-chats {
+    padding-left: 28px;
+    margin-top: 4px;
+}
+
+/* Чаты */
 .chat-item {
     padding: 10px 12px;
     margin-bottom: 4px;
@@ -73,6 +143,10 @@ body {
     background: #2a2a2a;
 }
 
+.chat-item:hover .chat-actions {
+    opacity: 1;
+}
+
 .chat-item.active {
     background: #2d4a5c;
 }
@@ -85,18 +159,64 @@ body {
     font-size: 14px;
 }
 
-.delete-chat-btn {
+.chat-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.chat-item.active .chat-actions {
+    opacity: 1;
+}
+
+.chat-action-btn {
     background: none;
     border: none;
     color: #666;
     cursor: pointer;
-    padding: 4px 8px;
-    font-size: 16px;
+    padding: 4px 6px;
+    font-size: 14px;
     transition: color 0.2s;
+    border-radius: 4px;
 }
 
-.delete-chat-btn:hover {
+.chat-action-btn:hover {
+    color: #fff;
+    background: #333;
+}
+
+.chat-action-btn.delete-btn:hover {
     color: #ff4444;
+}
+
+/* Меню перемещения */
+.move-menu {
+    background: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    padding: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    min-width: 180px;
+}
+
+.move-menu-item {
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.move-menu-item:hover {
+    background: #333;
+}
+
+.move-menu-divider {
+    height: 1px;
+    background: #3a3a3a;
+    margin: 6px 0;
 }
 
 /* Нижняя часть сайдбара */
@@ -229,6 +349,11 @@ body {
 .message-input:focus {
     outline: none;
     border-color: #4a9eff;
+}
+
+.message-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .send-btn {
