@@ -14,21 +14,25 @@ let apiKey = '';
 let currentModel = 'claude-sonnet-4-5-20250929';
 
 // Элементы интерфейса
-const chatsList = document.getElementById('chatsList');
-const messagesContainer = document.getElementById('messagesContainer');
-const messageInput = document.getElementById('messageInput');
-const sendBtn = document.getElementById('sendBtn');
-const newChatBtn = document.getElementById('newChatBtn');
-const newProjectBtn = document.getElementById('newProjectBtn');
-const settingsBtn = document.getElementById('settingsBtn');
-const settingsModal = document.getElementById('settingsModal');
-const closeSettings = document.getElementById('closeSettings');
-const apiKeyInput = document.getElementById('apiKeyInput');
-const saveApiKey = document.getElementById('saveApiKey');
-const modelSelect = document.getElementById('modelSelect');
+let chatsList, messagesContainer, messageInput, sendBtn, newChatBtn, newProjectBtn;
+let settingsBtn, settingsModal, closeSettings, apiKeyInput, saveApiKey, modelSelect;
 
 // Инициализация при загрузке
 window.addEventListener('DOMContentLoaded', () => {
+    // Получаем все элементы
+    chatsList = document.getElementById('chatsList');
+    messagesContainer = document.getElementById('messagesContainer');
+    messageInput = document.getElementById('messageInput');
+    sendBtn = document.getElementById('sendBtn');
+    newChatBtn = document.getElementById('newChatBtn');
+    newProjectBtn = document.getElementById('newProjectBtn');
+    settingsBtn = document.getElementById('settingsBtn');
+    settingsModal = document.getElementById('settingsModal');
+    closeSettings = document.getElementById('closeSettings');
+    apiKeyInput = document.getElementById('apiKeyInput');
+    saveApiKey = document.getElementById('saveApiKey');
+    modelSelect = document.getElementById('modelSelect');
+    
     loadSettings();
     loadData();
     renderChatsList();
@@ -37,7 +41,89 @@ window.addEventListener('DOMContentLoaded', () => {
     if (firstChat) {
         switchToChat(firstChat.id);
     }
+    
+    // Важно! Устанавливаем обработчики после получения элементов
+    setupEventListeners();
 });
+
+function setupEventListeners() {
+    if (newChatBtn) {
+        newChatBtn.addEventListener('click', () => createNewChat());
+    }
+    
+    if (newProjectBtn) {
+        newProjectBtn.addEventListener('click', createNewProject);
+    }
+    
+    if (sendBtn) {
+        sendBtn.addEventListener('click', sendMessage);
+    }
+    
+    if (messageInput) {
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        messageInput.addEventListener('input', () => {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = messageInput.scrollHeight + 'px';
+        });
+    }
+    
+    if (modelSelect) {
+        modelSelect.addEventListener('change', () => {
+            currentModel = modelSelect.value;
+            saveSettings();
+        });
+    }
+    
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', () => {
+            if (apiKeyInput) apiKeyInput.value = apiKey;
+            if (settingsModal) settingsModal.classList.add('active');
+        });
+    }
+    
+    if (closeSettings) {
+        closeSettings.addEventListener('click', () => {
+            if (settingsModal) settingsModal.classList.remove('active');
+            enableInput();
+        });
+    }
+    
+    if (saveApiKey) {
+        saveApiKey.addEventListener('click', () => {
+            if (apiKeyInput) apiKey = apiKeyInput.value.trim();
+            saveSettings();
+            if (settingsModal) settingsModal.classList.remove('active');
+            
+            if (apiKey) {
+                alert('API ключ сохранён!');
+            }
+            
+            enableInput();
+        });
+    }
+    
+    if (settingsModal) {
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) {
+                settingsModal.classList.remove('active');
+                enableInput();
+            }
+        });
+    }
+}
+
+function enableInput() {
+    if (messageInput) {
+        messageInput.disabled = false;
+        messageInput.focus();
+    }
+}
 
 // === РАБОТА С НАСТРОЙКАМИ ===
 
@@ -48,7 +134,7 @@ function loadSettings() {
             const settings = JSON.parse(data);
             apiKey = settings.apiKey || '';
             currentModel = settings.model || 'claude-sonnet-4-5-20250929';
-            modelSelect.value = currentModel;
+            if (modelSelect) modelSelect.value = currentModel;
         }
     } catch (error) {
         console.error('Ошибка загрузки настроек:', error);
@@ -176,8 +262,6 @@ function createNewChat(projectId = null) {
     saveData();
     renderChatsList();
     switchToChat(newChat.id);
-    
-    setTimeout(() => messageInput.focus(), 100);
 }
 
 function deleteChat(chatId) {
@@ -201,16 +285,13 @@ function deleteChat(chatId) {
 }
 
 function moveChatToProject(chatId, targetProjectId) {
-    // Находим чат и удаляем его откуда он был
     let chat = null;
     
-    // Ищем в чатах без проекта
     const indexWithout = chatsWithoutProject.findIndex(c => c.id === chatId);
     if (indexWithout !== -1) {
         chat = chatsWithoutProject.splice(indexWithout, 1)[0];
     }
     
-    // Ищем в проектах
     if (!chat) {
         for (let project of projects) {
             if (project.chats) {
@@ -225,7 +306,6 @@ function moveChatToProject(chatId, targetProjectId) {
     
     if (!chat) return;
     
-    // Добавляем в новое место
     if (targetProjectId === 'no-project') {
         chatsWithoutProject.unshift(chat);
     } else {
@@ -241,13 +321,11 @@ function moveChatToProject(chatId, targetProjectId) {
 }
 
 function showMoveMenu(chatId, buttonElement) {
-    // Удаляем старые меню
     document.querySelectorAll('.move-menu').forEach(m => m.remove());
     
     const menu = document.createElement('div');
     menu.className = 'move-menu';
     
-    // Опция "Без проекта"
     const noProjectOption = document.createElement('div');
     noProjectOption.className = 'move-menu-item';
     noProjectOption.textContent = '📄 Без проекта';
@@ -257,14 +335,12 @@ function showMoveMenu(chatId, buttonElement) {
     };
     menu.appendChild(noProjectOption);
     
-    // Разделитель
     if (projects.length > 0) {
         const divider = document.createElement('div');
         divider.className = 'move-menu-divider';
         menu.appendChild(divider);
     }
     
-    // Опции проектов
     projects.forEach(project => {
         const projectOption = document.createElement('div');
         projectOption.className = 'move-menu-item';
@@ -276,7 +352,6 @@ function showMoveMenu(chatId, buttonElement) {
         menu.appendChild(projectOption);
     });
     
-    // Позиционирование меню
     const rect = buttonElement.getBoundingClientRect();
     menu.style.position = 'fixed';
     menu.style.top = rect.bottom + 5 + 'px';
@@ -284,7 +359,6 @@ function showMoveMenu(chatId, buttonElement) {
     
     document.body.appendChild(menu);
     
-    // Закрытие при клике вне меню
     setTimeout(() => {
         document.addEventListener('click', function closeMenu(e) {
             if (!menu.contains(e.target) && e.target !== buttonElement) {
@@ -299,8 +373,7 @@ function switchToChat(chatId) {
     currentChatId = chatId;
     renderChatsList();
     renderMessages();
-    
-    setTimeout(() => messageInput.focus(), 100);
+    enableInput();
 }
 
 function getCurrentChat() {
@@ -310,9 +383,9 @@ function getCurrentChat() {
 // === ОТОБРАЖЕНИЕ ===
 
 function renderChatsList() {
+    if (!chatsList) return;
     chatsList.innerHTML = '';
     
-    // Чаты без проекта
     if (chatsWithoutProject.length > 0) {
         const section = document.createElement('div');
         section.className = 'chats-section';
@@ -325,7 +398,6 @@ function renderChatsList() {
         chatsList.appendChild(section);
     }
     
-    // Проекты
     projects.forEach(project => {
         const projectEl = createProjectElement(project);
         chatsList.appendChild(projectEl);
@@ -363,7 +435,6 @@ function createProjectElement(project) {
     
     projectDiv.appendChild(header);
     
-    // Чаты проекта
     if (project.expanded && project.chats && project.chats.length > 0) {
         const chatsContainer = document.createElement('div');
         chatsContainer.className = 'project-chats';
@@ -420,6 +491,7 @@ function createChatElement(chat) {
 }
 
 function showWelcomeScreen() {
+    if (!messagesContainer) return;
     messagesContainer.innerHTML = `
         <div class="welcome-message">
             <h1>👋 Привет! Я Nova</h1>
@@ -436,6 +508,7 @@ function renderMessages() {
         return;
     }
     
+    if (!messagesContainer) return;
     messagesContainer.innerHTML = '';
     
     chat.messages.forEach(msg => {
@@ -477,10 +550,11 @@ async function sendMessage() {
     
     if (!apiKey) {
         alert('Введите API ключ в настройках');
-        settingsModal.classList.add('active');
+        if (settingsModal) settingsModal.classList.add('active');
         return;
     }
     
+    if (!messageInput) return;
     const message = messageInput.value.trim();
     if (!message) return;
     
@@ -497,7 +571,7 @@ async function sendMessage() {
     messageInput.value = '';
     renderMessages();
     
-    sendBtn.disabled = true;
+    if (sendBtn) sendBtn.disabled = true;
     messageInput.disabled = true;
     
     try {
@@ -535,60 +609,7 @@ async function sendMessage() {
         chat.messages.pop();
         renderMessages();
     } finally {
-        sendBtn.disabled = false;
-        messageInput.disabled = false;
-        messageInput.focus();
+        if (sendBtn) sendBtn.disabled = false;
+        enableInput();
     }
 }
-
-// === ОБРАБОТЧИКИ СОБЫТИЙ ===
-
-newChatBtn.addEventListener('click', () => createNewChat());
-newProjectBtn.addEventListener('click', createNewProject);
-sendBtn.addEventListener('click', sendMessage);
-
-messageInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-    }
-});
-
-messageInput.addEventListener('input', () => {
-    messageInput.style.height = 'auto';
-    messageInput.style.height = messageInput.scrollHeight + 'px';
-});
-
-modelSelect.addEventListener('change', () => {
-    currentModel = modelSelect.value;
-    saveSettings();
-});
-
-settingsBtn.addEventListener('click', () => {
-    apiKeyInput.value = apiKey;
-    settingsModal.classList.add('active');
-});
-
-closeSettings.addEventListener('click', () => {
-    settingsModal.classList.remove('active');
-    setTimeout(() => messageInput.focus(), 100);
-});
-
-saveApiKey.addEventListener('click', () => {
-    apiKey = apiKeyInput.value.trim();
-    saveSettings();
-    settingsModal.classList.remove('active');
-    
-    if (apiKey) {
-        alert('API ключ сохранён!');
-    }
-    
-    setTimeout(() => messageInput.focus(), 100);
-});
-
-settingsModal.addEventListener('click', (e) => {
-    if (e.target === settingsModal) {
-        settingsModal.classList.remove('active');
-        setTimeout(() => messageInput.focus(), 100);
-    }
-});
