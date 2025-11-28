@@ -3,11 +3,12 @@ const path = require('path');
 
 // Путь для хранения данных
 const userDataPath = process.env.PORTABLE_EXECUTABLE_DIR || __dirname;
-const chatsFilePath = path.join(userDataPath, 'chats.json');
+const dataFilePath = path.join(userDataPath, 'nova-data.json');
 const settingsFilePath = path.join(userDataPath, 'settings.json');
 
 // Глобальные переменные
-let chats = [];
+let projects = [];
+let chatsWithoutProject = [];
 let currentChatId = null;
 let apiKey = '';
 let currentModel = 'claude-sonnet-4-5-20250929';
@@ -18,6 +19,7 @@ const messagesContainer = document.getElementById('messagesContainer');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
 const newChatBtn = document.getElementById('newChatBtn');
+const newProjectBtn = document.getElementById('newProjectBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const settingsModal = document.getElementById('settingsModal');
 const closeSettings = document.getElementById('closeSettings');
@@ -28,11 +30,12 @@ const modelSelect = document.getElementById('modelSelect');
 // Инициализация при загрузке
 window.addEventListener('DOMContentLoaded', () => {
     loadSettings();
-    loadChats();
+    loadData();
     renderChatsList();
     
-    if (chats.length > 0) {
-        switchToChat(chats[0].id);
+    const firstChat = findFirstChat();
+    if (firstChat) {
+        switchToChat(firstChat.id);
     }
 });
 
@@ -64,29 +67,95 @@ function saveSettings() {
     }
 }
 
-// === РАБОТА С ЧАТАМИ ===
+// === РАБОТА С ДАННЫМИ ===
 
-function loadChats() {
+function loadData() {
     try {
-        if (fs.existsSync(chatsFilePath)) {
-            const data = fs.readFileSync(chatsFilePath, 'utf8');
-            chats = JSON.parse(data);
+        if (fs.existsSync(dataFilePath)) {
+            const data = fs.readFileSync(dataFilePath, 'utf8');
+            const parsed = JSON.parse(data);
+            projects = parsed.projects || [];
+            chatsWithoutProject = parsed.chatsWithoutProject || [];
+        } else {
+            // Миграция со старого формата
+            const oldChatsPath = path.join(userDataPath, 'chats.json');
+            if (fs.existsSync(oldChatsPath)) {
+                const oldData = fs.readFileSync(oldChatsPath, 'utf8');
+                chatsWithoutProject = JSON.parse(oldData);
+                saveData();
+            }
         }
     } catch (error) {
-        console.error('Ошибка загрузки чатов:', error);
-        chats = [];
+        console.error('Ошибка загрузки данных:', error);
+        projects = [];
+        chatsWithoutProject = [];
     }
 }
 
-function saveChats() {
+function saveData() {
     try {
-        fs.writeFileSync(chatsFilePath, JSON.stringify(chats, null, 2));
+        const data = {
+            projects: projects,
+            chatsWithoutProject: chatsWithoutProject
+        };
+        fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2));
     } catch (error) {
-        console.error('Ошибка сохранения чатов:', error);
+        console.error('Ошибка сохранения данных:', error);
     }
 }
 
-function createNewChat() {
+function findFirstChat() {
+    if (chatsWithoutProject.length > 0) return chatsWithoutProject[0];
+    for (let project of projects) {
+        if (project.chats && project.chats.length > 0) return project.chats[0];
+    }
+    return null;
+}
+
+function findChat(chatId) {
+    let chat = chatsWithoutProject.find(c => c.id === chatId);
+    if (chat) return chat;
+    
+    for (let project of projects) {
+        if (project.chats) {
+            chat = project.chats.find(c => c.id === chatId);
+            if (chat) return chat;
+        }
+    }
+    return null;
+}
+
+// === ПРОЕКТЫ ===
+
+function createNewProject() {
+    const projectName = prompt('Название проекта:');
+    if (!projectName || !projectName.trim()) return;
+    
+    const newProject = {
+        id: Date.now().toString(),
+        name: projectName.trim(),
+        chats: [],
+        expanded: true,
+        createdAt: new Date().toISOString()
+    };
+    
+    projects.unshift(newProject);
+    saveData();
+    renderChatsList();
+}
+
+function toggleProject(projectId) {
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+        project.expanded = !project.expanded;
+        saveData();
+        renderChatsList();
+    }
+}
+
+// === ЧАТЫ ===
+
+function createNewChat(projectId = null) {
     const newChat = {
         id: Date.now().toString(),
         title: 'Новый чат',
@@ -94,31 +163,136 @@ function createNewChat() {
         createdAt: new Date().toISOString()
     };
     
-    chats.unshift(newChat);
-    saveChats();
+    if (projectId) {
+        const project = projects.find(p => p.id === projectId);
+        if (project) {
+            if (!project.chats) project.chats = [];
+            project.chats.unshift(newChat);
+        }
+    } else {
+        chatsWithoutProject.unshift(newChat);
+    }
+    
+    saveData();
     renderChatsList();
     switchToChat(newChat.id);
     
-    // Возвращаем фокус на поле ввода
     setTimeout(() => messageInput.focus(), 100);
 }
 
 function deleteChat(chatId) {
-    if (confirm('Удалить этот чат?')) {
-        chats = chats.filter(chat => chat.id !== chatId);
-        saveChats();
-        renderChatsList();
-        
-        if (currentChatId === chatId) {
-            currentChatId = null;
-            messagesContainer.innerHTML = `
-                <div class="welcome-message">
-                    <h1>👋 Привет! Я Nova</h1>
-                    <p>Выбери чат слева или создай новый</p>
-                </div>
-            `;
+    if (!confirm('Удалить этот чат?')) return;
+    
+    chatsWithoutProject = chatsWithoutProject.filter(chat => chat.id !== chatId);
+    
+    projects.forEach(project => {
+        if (project.chats) {
+            project.chats = project.chats.filter(chat => chat.id !== chatId);
+        }
+    });
+    
+    saveData();
+    renderChatsList();
+    
+    if (currentChatId === chatId) {
+        currentChatId = null;
+        showWelcomeScreen();
+    }
+}
+
+function moveChatToProject(chatId, targetProjectId) {
+    // Находим чат и удаляем его откуда он был
+    let chat = null;
+    
+    // Ищем в чатах без проекта
+    const indexWithout = chatsWithoutProject.findIndex(c => c.id === chatId);
+    if (indexWithout !== -1) {
+        chat = chatsWithoutProject.splice(indexWithout, 1)[0];
+    }
+    
+    // Ищем в проектах
+    if (!chat) {
+        for (let project of projects) {
+            if (project.chats) {
+                const index = project.chats.findIndex(c => c.id === chatId);
+                if (index !== -1) {
+                    chat = project.chats.splice(index, 1)[0];
+                    break;
+                }
+            }
         }
     }
+    
+    if (!chat) return;
+    
+    // Добавляем в новое место
+    if (targetProjectId === 'no-project') {
+        chatsWithoutProject.unshift(chat);
+    } else {
+        const targetProject = projects.find(p => p.id === targetProjectId);
+        if (targetProject) {
+            if (!targetProject.chats) targetProject.chats = [];
+            targetProject.chats.unshift(chat);
+        }
+    }
+    
+    saveData();
+    renderChatsList();
+}
+
+function showMoveMenu(chatId, buttonElement) {
+    // Удаляем старые меню
+    document.querySelectorAll('.move-menu').forEach(m => m.remove());
+    
+    const menu = document.createElement('div');
+    menu.className = 'move-menu';
+    
+    // Опция "Без проекта"
+    const noProjectOption = document.createElement('div');
+    noProjectOption.className = 'move-menu-item';
+    noProjectOption.textContent = '📄 Без проекта';
+    noProjectOption.onclick = () => {
+        moveChatToProject(chatId, 'no-project');
+        menu.remove();
+    };
+    menu.appendChild(noProjectOption);
+    
+    // Разделитель
+    if (projects.length > 0) {
+        const divider = document.createElement('div');
+        divider.className = 'move-menu-divider';
+        menu.appendChild(divider);
+    }
+    
+    // Опции проектов
+    projects.forEach(project => {
+        const projectOption = document.createElement('div');
+        projectOption.className = 'move-menu-item';
+        projectOption.textContent = `📁 ${project.name}`;
+        projectOption.onclick = () => {
+            moveChatToProject(chatId, project.id);
+            menu.remove();
+        };
+        menu.appendChild(projectOption);
+    });
+    
+    // Позиционирование меню
+    const rect = buttonElement.getBoundingClientRect();
+    menu.style.position = 'fixed';
+    menu.style.top = rect.bottom + 5 + 'px';
+    menu.style.left = rect.left + 'px';
+    
+    document.body.appendChild(menu);
+    
+    // Закрытие при клике вне меню
+    setTimeout(() => {
+        document.addEventListener('click', function closeMenu(e) {
+            if (!menu.contains(e.target) && e.target !== buttonElement) {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        });
+    }, 0);
 }
 
 function switchToChat(chatId) {
@@ -126,12 +300,11 @@ function switchToChat(chatId) {
     renderChatsList();
     renderMessages();
     
-    // Возвращаем фокус на поле ввода
     setTimeout(() => messageInput.focus(), 100);
 }
 
 function getCurrentChat() {
-    return chats.find(chat => chat.id === currentChatId);
+    return findChat(currentChatId);
 }
 
 // === ОТОБРАЖЕНИЕ ===
@@ -139,46 +312,127 @@ function getCurrentChat() {
 function renderChatsList() {
     chatsList.innerHTML = '';
     
-    chats.forEach(chat => {
-        const chatItem = document.createElement('div');
-        chatItem.className = `chat-item ${chat.id === currentChatId ? 'active' : ''}`;
+    // Чаты без проекта
+    if (chatsWithoutProject.length > 0) {
+        const section = document.createElement('div');
+        section.className = 'chats-section';
         
-        const titleDiv = document.createElement('div');
-        titleDiv.className = 'chat-item-title';
-        titleDiv.textContent = chat.title;
-        
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'delete-chat-btn';
-        deleteBtn.textContent = '×';
-        
-        chatItem.appendChild(titleDiv);
-        chatItem.appendChild(deleteBtn);
-        
-        chatItem.addEventListener('click', (e) => {
-            if (!e.target.classList.contains('delete-chat-btn')) {
-                switchToChat(chat.id);
-            }
+        chatsWithoutProject.forEach(chat => {
+            const chatEl = createChatElement(chat);
+            section.appendChild(chatEl);
         });
         
-        deleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            deleteChat(chat.id);
-        });
-        
-        chatsList.appendChild(chatItem);
+        chatsList.appendChild(section);
+    }
+    
+    // Проекты
+    projects.forEach(project => {
+        const projectEl = createProjectElement(project);
+        chatsList.appendChild(projectEl);
     });
+}
+
+function createProjectElement(project) {
+    const projectDiv = document.createElement('div');
+    projectDiv.className = 'project-item';
+    
+    const header = document.createElement('div');
+    header.className = 'project-header';
+    
+    const toggle = document.createElement('button');
+    toggle.className = 'project-toggle';
+    toggle.textContent = project.expanded ? '▼' : '▶';
+    toggle.onclick = () => toggleProject(project.id);
+    
+    const name = document.createElement('div');
+    name.className = 'project-name';
+    name.textContent = project.name;
+    
+    const addChatBtn = document.createElement('button');
+    addChatBtn.className = 'project-add-btn';
+    addChatBtn.textContent = '+';
+    addChatBtn.title = 'Добавить чат';
+    addChatBtn.onclick = (e) => {
+        e.stopPropagation();
+        createNewChat(project.id);
+    };
+    
+    header.appendChild(toggle);
+    header.appendChild(name);
+    header.appendChild(addChatBtn);
+    
+    projectDiv.appendChild(header);
+    
+    // Чаты проекта
+    if (project.expanded && project.chats && project.chats.length > 0) {
+        const chatsContainer = document.createElement('div');
+        chatsContainer.className = 'project-chats';
+        
+        project.chats.forEach(chat => {
+            const chatEl = createChatElement(chat);
+            chatsContainer.appendChild(chatEl);
+        });
+        
+        projectDiv.appendChild(chatsContainer);
+    }
+    
+    return projectDiv;
+}
+
+function createChatElement(chat) {
+    const chatDiv = document.createElement('div');
+    chatDiv.className = `chat-item ${chat.id === currentChatId ? 'active' : ''}`;
+    
+    const title = document.createElement('div');
+    title.className = 'chat-item-title';
+    title.textContent = chat.title;
+    
+    const actions = document.createElement('div');
+    actions.className = 'chat-actions';
+    
+    const moveBtn = document.createElement('button');
+    moveBtn.className = 'chat-action-btn';
+    moveBtn.textContent = '📁';
+    moveBtn.title = 'Переместить в проект';
+    moveBtn.onclick = (e) => {
+        e.stopPropagation();
+        showMoveMenu(chat.id, moveBtn);
+    };
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'chat-action-btn delete-btn';
+    deleteBtn.textContent = '×';
+    deleteBtn.title = 'Удалить чат';
+    deleteBtn.onclick = (e) => {
+        e.stopPropagation();
+        deleteChat(chat.id);
+    };
+    
+    actions.appendChild(moveBtn);
+    actions.appendChild(deleteBtn);
+    
+    chatDiv.appendChild(title);
+    chatDiv.appendChild(actions);
+    
+    chatDiv.onclick = () => switchToChat(chat.id);
+    
+    return chatDiv;
+}
+
+function showWelcomeScreen() {
+    messagesContainer.innerHTML = `
+        <div class="welcome-message">
+            <h1>👋 Привет! Я Nova</h1>
+            <p>Выбери чат или создай новый</p>
+        </div>
+    `;
 }
 
 function renderMessages() {
     const chat = getCurrentChat();
     
     if (!chat) {
-        messagesContainer.innerHTML = `
-            <div class="welcome-message">
-                <h1>👋 Привет! Я Nova</h1>
-                <p>Выбери чат слева или создай новый</p>
-            </div>
-        `;
+        showWelcomeScreen();
         return;
     }
     
@@ -210,10 +464,8 @@ function escapeHtml(text) {
 // === ОТПРАВКА СООБЩЕНИЙ ===
 
 async function sendMessage() {
-    // Если нет активного чата - создаём новый
     if (!currentChatId) {
         createNewChat();
-        // Даём время на создание чата
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     
@@ -274,11 +526,11 @@ async function sendMessage() {
             content: data.content[0].text
         });
         
-        saveChats();
+        saveData();
         renderMessages();
         
     } catch (error) {
-        console.error('Ошибка отправки сообщения:', error);
+        console.error('Ошибка:', error);
         alert('Ошибка отправки сообщения. Проверьте API ключ.');
         chat.messages.pop();
         renderMessages();
@@ -291,7 +543,8 @@ async function sendMessage() {
 
 // === ОБРАБОТЧИКИ СОБЫТИЙ ===
 
-newChatBtn.addEventListener('click', createNewChat);
+newChatBtn.addEventListener('click', () => createNewChat());
+newProjectBtn.addEventListener('click', createNewProject);
 sendBtn.addEventListener('click', sendMessage);
 
 messageInput.addEventListener('keydown', (e) => {
@@ -318,7 +571,6 @@ settingsBtn.addEventListener('click', () => {
 
 closeSettings.addEventListener('click', () => {
     settingsModal.classList.remove('active');
-    // Возвращаем фокус на поле ввода после закрытия настроек
     setTimeout(() => messageInput.focus(), 100);
 });
 
@@ -331,7 +583,6 @@ saveApiKey.addEventListener('click', () => {
         alert('API ключ сохранён!');
     }
     
-    // Возвращаем фокус на поле ввода
     setTimeout(() => messageInput.focus(), 100);
 });
 
